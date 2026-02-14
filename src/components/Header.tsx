@@ -14,7 +14,10 @@ const Header = () => {
   const navLinks = [
     { to: "/", label: "Home" },
     { to: "/browse", label: "Browse" },
-    ...(user ? [{ to: "/dashboard", label: "Dashboard" }] : []),
+    ...(user ? [
+      { to: "/dashboard", label: "Dashboard" },
+      { to: "/edit-profile", label: "My Profile" },
+    ] : []),
   ];
 
   const handleSignOut = async () => {
