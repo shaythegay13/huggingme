@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { Heart, Users, Zap, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
-import heroBg from "@/assets/hero-bg.jpg";
+import hero1 from "@/assets/hero-1.jpeg";
+import hero2 from "@/assets/hero-2.jpeg";
 
 const features = [
   {
@@ -105,12 +106,17 @@ const Index = () => {
               transition={{ duration: 0.7, delay: 0.2 }}
               className="hidden lg:block"
             >
-              <div className="relative">
+              <div className="relative grid grid-cols-2 gap-4">
                 <div className="absolute -inset-4 rounded-3xl bg-primary/10 blur-2xl" />
                 <img
-                  src={heroBg}
-                  alt="People sharing positive energy"
-                  className="relative rounded-3xl shadow-elevated object-cover aspect-[4/3]"
+                  src={hero1}
+                  alt="Two people sharing a friendly handshake"
+                  className="relative rounded-3xl shadow-elevated object-cover aspect-[3/4] w-full"
+                />
+                <img
+                  src={hero2}
+                  alt="Two friends sharing positive energy"
+                  className="relative rounded-3xl shadow-elevated object-cover aspect-[3/4] w-full"
                 />
               </div>
             </motion.div>
