@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, SlidersHorizontal, X, Shield, Zap } from "lucide-react";
+import { Search, SlidersHorizontal, X, Shield, Zap, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -9,9 +10,11 @@ import { Slider } from "@/components/ui/slider";
 import Header from "@/components/Header";
 import ProfileCard from "@/components/ProfileCard";
 import SendOfferModal from "@/components/SendOfferModal";
-import { mockProfiles } from "@/data/mockProfiles";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const Browse = () => {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showAvailable, setShowAvailable] = useState(false);
@@ -21,19 +24,32 @@ const Browse = () => {
 
   const [offerTarget, setOfferTarget] = useState<{ name: string; energy: number; type: "hug" | "handshake" } | null>(null);
 
-  const filtered = mockProfiles
+  const { data: profiles = [], isLoading } = useQuery({
+    queryKey: ["browse-profiles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("is_public", true);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const filtered = profiles
+    .filter((p) => p.user_id !== user?.id)
     .filter((p) => {
       const matchesSearch =
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.location.toLowerCase().includes(search.toLowerCase());
-      const matchesAvailable = !showAvailable || p.isAvailable;
-      const matchesVerified = !showVerified || p.isVerified;
-      const matchesEnergy = p.energyLevel >= minEnergy;
+        p.first_name.toLowerCase().includes(search.toLowerCase()) ||
+        (p.location || "").toLowerCase().includes(search.toLowerCase());
+      const matchesAvailable = !showAvailable || p.available_today;
+      const matchesVerified = !showVerified || p.is_verified;
+      const matchesEnergy = p.energy_state >= minEnergy;
       return matchesSearch && matchesAvailable && matchesVerified && matchesEnergy;
     })
     .sort((a, b) => {
-      if (sortBy === "energy") return b.energyLevel - a.energyLevel;
-      return a.name.localeCompare(b.name);
+      if (sortBy === "energy") return b.energy_state - a.energy_state;
+      return a.first_name.localeCompare(b.first_name);
     });
 
   const activeFilterCount = [showAvailable, showVerified, minEnergy > 1].filter(Boolean).length;
@@ -181,7 +197,12 @@ const Browse = () => {
         <p className="mb-4 text-sm text-muted-foreground">{filtered.length} hugger{filtered.length !== 1 ? "s" : ""} found</p>
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((profile, i) => (
+        {isLoading ? (
+          <div className="col-span-full flex justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          filtered.map((profile, i) => (
             <motion.div
               key={profile.id}
               initial={{ opacity: 0, y: 20 }}
@@ -190,20 +211,21 @@ const Browse = () => {
             >
               <ProfileCard
                 id={profile.id}
-                name={profile.name}
-                age={profile.age}
-                location={profile.location}
-                photo={profile.photo}
-                energyLevel={profile.energyLevel}
-                isVerified={profile.isVerified}
-                isAvailable={profile.isAvailable}
-                onSendOffer={(type) => setOfferTarget({ name: profile.name, energy: profile.energyLevel, type })}
+                name={profile.first_name}
+                age={profile.legal_age || undefined}
+                location={profile.location || "Unknown"}
+                photo={profile.photos?.[0] || "/placeholder.svg"}
+                energyLevel={profile.energy_state}
+                isVerified={profile.is_verified}
+                isAvailable={profile.available_today}
+                onSendOffer={(type) => setOfferTarget({ name: profile.first_name, energy: profile.energy_state, type })}
               />
             </motion.div>
-          ))}
+          ))
+        )}
         </div>
 
-        {filtered.length === 0 && (
+        {!isLoading && filtered.length === 0 && (
           <div className="py-20 text-center text-muted-foreground">
             No huggers found. Try adjusting your filters.
           </div>
