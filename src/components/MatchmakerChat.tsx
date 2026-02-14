@@ -11,7 +11,7 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/matchmaker-c
 const MatchmakerChat = () => {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([
-    { role: "assistant", content: "Hi! 👋 I'm your matchmaker. Tell me what kind of person you'd like to meet — energy level, availability, location — and I'll find the best matches for you!" },
+    { role: "assistant", content: "Hi! 👋 I'm Dr. Hug. Tell me what kind of person you'd like to meet — energy level, availability, location — and I'll find the best matches for you!" },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -148,7 +148,7 @@ const MatchmakerChat = () => {
                   <Bot className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Matchmaker</p>
+                  <p className="text-sm font-semibold text-foreground">Dr. Hug</p>
                   <p className="text-xs text-muted-foreground">Find your next connection</p>
                 </div>
               </div>

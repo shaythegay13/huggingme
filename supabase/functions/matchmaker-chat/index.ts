@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `You are a friendly matchmaker assistant for a social platform where people connect through hugs and handshakes. 
+const SYSTEM_PROMPT = `You are Dr. Hug, a friendly matchmaker assistant for a social platform where people connect through hugs and handshakes. 
 You help users find people to meet based on their preferences.
 
 When a user asks to find people, use the search_profiles tool to query the database. You can filter by:
