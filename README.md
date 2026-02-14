@@ -6,6 +6,8 @@ HuggingMe is a social connection platform where verified users can browse nearby
 
 🌐 **Live at:** [huggingme.lovable.app](https://huggingme.lovable.app)
 
+🎬 **Watch the demo:** [youtube.com/watch?v=LiMduVmjD3o](https://youtu.be/LiMduVmjD3o)
+
 ---
 
 ## ✨ Features
