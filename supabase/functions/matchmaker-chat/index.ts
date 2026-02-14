@@ -31,34 +31,13 @@ const tools = [
       parameters: {
         type: "object",
         properties: {
-          available_today: {
-            type: "boolean",
-            description: "Filter to only people available today",
-          },
-          min_energy: {
-            type: "integer",
-            description: "Minimum energy level (1-10)",
-          },
-          max_energy: {
-            type: "integer",
-            description: "Maximum energy level (1-10)",
-          },
-          location: {
-            type: "string",
-            description: "Location to filter by (partial match)",
-          },
-          verified_only: {
-            type: "boolean",
-            description: "Only show verified profiles",
-          },
-          gender: {
-            type: "string",
-            description: "Filter by gender",
-          },
-          limit: {
-            type: "integer",
-            description: "Max number of results (default 5)",
-          },
+          available_today: { type: "boolean", description: "Filter to only people available today" },
+          min_energy: { type: "integer", description: "Minimum energy level (1-10)" },
+          max_energy: { type: "integer", description: "Maximum energy level (1-10)" },
+          location: { type: "string", description: "Location to filter by (partial match)" },
+          verified_only: { type: "boolean", description: "Only show verified profiles" },
+          gender: { type: "string", description: "Filter by gender" },
+          limit: { type: "integer", description: "Max number of results (default 5)" },
         },
         additionalProperties: false,
       },
@@ -66,27 +45,21 @@ const tools = [
   },
 ];
 
-async function searchProfiles(
-  params: Record<string, unknown>,
-  userId: string
-) {
+async function searchProfiles(params: Record<string, unknown>, userId: string) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   let query = supabase
     .from("profiles")
-    .select(
-      "first_name, energy_state, bio, location, available_today, is_verified, gender, languages, height, user_id"
-    )
+    .select("first_name, energy_state, bio, location, available_today, is_verified, gender, languages, height, user_id")
     .eq("is_public", true)
     .neq("user_id", userId);
 
   if (params.available_today === true) query = query.eq("available_today", true);
   if (params.min_energy) query = query.gte("energy_state", params.min_energy);
   if (params.max_energy) query = query.lte("energy_state", params.max_energy);
-  if (params.location)
-    query = query.ilike("location", `%${params.location}%`);
+  if (params.location) query = query.ilike("location", `%${params.location}%`);
   if (params.verified_only === true) query = query.eq("is_verified", true);
   if (params.gender) query = query.eq("gender", params.gender);
 
@@ -98,9 +71,40 @@ async function searchProfiles(
   return { profiles: data, count: data?.length || 0 };
 }
 
+// Parse a full SSE response body into assembled message chunks
+function parseSSEToMessage(text: string) {
+  const lines = text.split("\n");
+  let content = "";
+  let toolCalls: any[] = [];
+
+  for (const line of lines) {
+    if (!line.startsWith("data: ")) continue;
+    const jsonStr = line.slice(6).trim();
+    if (jsonStr === "[DONE]") continue;
+    try {
+      const parsed = JSON.parse(jsonStr);
+      const delta = parsed.choices?.[0]?.delta;
+      if (!delta) continue;
+      if (delta.content) content += delta.content;
+      if (delta.tool_calls) {
+        for (const tc of delta.tool_calls) {
+          const idx = tc.index ?? 0;
+          if (!toolCalls[idx]) {
+            toolCalls[idx] = { id: tc.id, type: tc.type, function: { name: "", arguments: "" } };
+          }
+          if (tc.id) toolCalls[idx].id = tc.id;
+          if (tc.function?.name) toolCalls[idx].function.name = tc.function.name;
+          if (tc.function?.arguments) toolCalls[idx].function.arguments += tc.function.arguments;
+        }
+      }
+    } catch { /* skip */ }
+  }
+
+  return { content, toolCalls: toolCalls.filter(Boolean) };
+}
+
 serve(async (req) => {
-  if (req.method === "OPTIONS")
-    return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { messages } = await req.json();
@@ -117,114 +121,68 @@ serve(async (req) => {
         const supabase = createClient(supabaseUrl, supabaseKey, {
           global: { headers: { Authorization: authHeader } },
         });
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        const { data: { user } } = await supabase.auth.getUser();
         if (user) userId = user.id;
-      } catch {}
+      } catch { /* continue as anonymous */ }
     }
 
-    // First AI call - may request tool use
-    let aiMessages = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...messages,
-    ];
+    const aiMessages: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
 
-    let response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
+    const callAI = async (msgs: any[], useTools: boolean, stream: boolean) => {
+      const body: any = { model: "google/gemini-3-flash-preview", messages: msgs, stream };
+      if (useTools) body.tools = tools;
+      return fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: aiMessages,
-          tools,
-          stream: false,
-        }),
-      }
-    );
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    };
 
-    if (!response.ok) {
-      const status = response.status;
-      if (status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limited, please try again shortly." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add funds." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const t = await response.text();
-      console.error("AI error:", status, t);
-      throw new Error("AI gateway error");
+    // First call with tools enabled - buffer full response to check for tool calls
+    const firstResponse = await callAI(aiMessages, true, true);
+
+    if (!firstResponse.ok) {
+      const status = firstResponse.status;
+      const errMsg = status === 429 ? "Rate limited, please try again shortly."
+        : status === 402 ? "AI credits exhausted. Please add funds."
+        : "AI gateway error";
+      return new Response(JSON.stringify({ error: errMsg }), {
+        status: status >= 400 && status < 500 ? status : 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    let data = await response.json();
-    let assistantMsg = data.choices?.[0]?.message;
+    // Buffer the first response to check for tool calls
+    const firstBody = await firstResponse.text();
+    const parsed = parseSSEToMessage(firstBody);
 
-    // Handle tool calls (one round)
-    if (assistantMsg?.tool_calls?.length) {
-      aiMessages.push(assistantMsg);
-
-      for (const tc of assistantMsg.tool_calls) {
-        if (tc.function.name === "search_profiles") {
-          const params = JSON.parse(tc.function.arguments);
-          const result = await searchProfiles(params, userId);
-          aiMessages.push({
-            role: "tool",
-            tool_call_id: tc.id,
-            content: JSON.stringify(result),
-          });
-        }
-      }
-
-      // Second AI call with tool results - stream this one
-      const streamResponse = await fetch(
-        "https://ai.gateway.lovable.dev/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            messages: aiMessages,
-            stream: true,
-          }),
-        }
-      );
-
-      if (!streamResponse.ok) throw new Error("AI stream error");
-
-      return new Response(streamResponse.body, {
+    // If no tool calls, just forward the buffered SSE as-is
+    if (parsed.toolCalls.length === 0) {
+      return new Response(firstBody, {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
     }
 
-    // No tool call - stream directly (re-do as stream)
-    const streamResponse = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: aiMessages,
-          stream: true,
-        }),
+    // Process tool calls
+    const assistantMsg: any = { role: "assistant", content: parsed.content || null, tool_calls: parsed.toolCalls };
+    aiMessages.push(assistantMsg);
+
+    for (const tc of parsed.toolCalls) {
+      if (tc.function.name === "search_profiles") {
+        const params = JSON.parse(tc.function.arguments);
+        const result = await searchProfiles(params, userId);
+        console.log("Search profiles result:", JSON.stringify(result));
+        aiMessages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) });
       }
-    );
+    }
+
+    // Second call - stream the final response
+    const streamResponse = await callAI(aiMessages, false, true);
+    if (!streamResponse.ok) {
+      const t = await streamResponse.text();
+      console.error("Second AI call error:", streamResponse.status, t);
+      throw new Error("AI stream error");
+    }
 
     return new Response(streamResponse.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
@@ -232,13 +190,8 @@ serve(async (req) => {
   } catch (e) {
     console.error("matchmaker-chat error:", e);
     return new Response(
-      JSON.stringify({
-        error: e instanceof Error ? e.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
