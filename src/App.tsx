@@ -10,6 +10,7 @@ import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Dashboard from "./pages/Dashboard";
+import EditProfile from "./pages/EditProfile";
 import NotFound from "./pages/NotFound";
 import MatchmakerChat from "@/components/MatchmakerChat";
 
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/profile/:id" element={<Profile />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/edit-profile" element={<EditProfile />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <MatchmakerChat />
