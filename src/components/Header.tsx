@@ -1,17 +1,25 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Heart, Menu, X } from "lucide-react";
+import { Heart, Menu, X, LogOut, User } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
 
   const navLinks = [
     { to: "/", label: "Home" },
     { to: "/browse", label: "Browse" },
   ];
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <motion.header
@@ -47,11 +55,23 @@ const Header = () => {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Link to="/register">
-            <Button className="gradient-primary shine-effect border-0 text-primary-foreground">
-              Log in or Sign up
-            </Button>
-          </Link>
+          {user ? (
+            <>
+              <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                <User className="h-4 w-4" />
+                {user.email}
+              </span>
+              <Button variant="outline" size="sm" onClick={handleSignOut} className="text-muted-foreground">
+                <LogOut className="mr-1.5 h-4 w-4" /> Sign out
+              </Button>
+            </>
+          ) : (
+            <Link to="/login">
+              <Button className="gradient-primary shine-effect border-0 text-primary-foreground">
+                Log in or Sign up
+              </Button>
+            </Link>
+          )}
         </div>
 
         <button
@@ -80,11 +100,17 @@ const Header = () => {
                 {link.label}
               </Link>
             ))}
-            <Link to="/register" onClick={() => setMobileOpen(false)}>
-              <Button className="gradient-primary shine-effect w-full border-0 text-primary-foreground">
-                Log in or Sign up
+            {user ? (
+              <Button variant="outline" onClick={() => { handleSignOut(); setMobileOpen(false); }} className="text-muted-foreground">
+                <LogOut className="mr-1.5 h-4 w-4" /> Sign out
               </Button>
-            </Link>
+            ) : (
+              <Link to="/login" onClick={() => setMobileOpen(false)}>
+                <Button className="gradient-primary shine-effect w-full border-0 text-primary-foreground">
+                  Log in or Sign up
+                </Button>
+              </Link>
+            )}
           </div>
         </motion.div>
       )}

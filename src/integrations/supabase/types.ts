@@ -14,7 +14,173 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      offers: {
+        Row: {
+          created_at: string
+          credits_offered: number
+          energy_differential: number | null
+          expires_at: string
+          id: string
+          interaction_type: string
+          location_offered: string | null
+          message: string | null
+          preferred_times: string[] | null
+          receiver_energy_state: number | null
+          receiver_id: string
+          sender_energy_state: number | null
+          sender_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          credits_offered?: number
+          energy_differential?: number | null
+          expires_at?: string
+          id?: string
+          interaction_type?: string
+          location_offered?: string | null
+          message?: string | null
+          preferred_times?: string[] | null
+          receiver_energy_state?: number | null
+          receiver_id: string
+          sender_energy_state?: number | null
+          sender_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          credits_offered?: number
+          energy_differential?: number | null
+          expires_at?: string
+          id?: string
+          interaction_type?: string
+          location_offered?: string | null
+          message?: string | null
+          preferred_times?: string[] | null
+          receiver_energy_state?: number | null
+          receiver_id?: string
+          sender_energy_state?: number | null
+          sender_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offers_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "offers_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          available_today: boolean
+          bio: string | null
+          created_at: string
+          credits: number
+          energy_state: number
+          first_name: string
+          gender: string | null
+          height: string | null
+          id: string
+          is_public: boolean
+          is_verified: boolean
+          languages: string[] | null
+          legal_age: number | null
+          location: string | null
+          max_distance: number | null
+          photos: string[] | null
+          skin_type: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          available_today?: boolean
+          bio?: string | null
+          created_at?: string
+          credits?: number
+          energy_state?: number
+          first_name?: string
+          gender?: string | null
+          height?: string | null
+          id?: string
+          is_public?: boolean
+          is_verified?: boolean
+          languages?: string[] | null
+          legal_age?: number | null
+          location?: string | null
+          max_distance?: number | null
+          photos?: string[] | null
+          skin_type?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          available_today?: boolean
+          bio?: string | null
+          created_at?: string
+          credits?: number
+          energy_state?: number
+          first_name?: string
+          gender?: string | null
+          height?: string | null
+          id?: string
+          is_public?: boolean
+          is_verified?: boolean
+          languages?: string[] | null
+          legal_age?: number | null
+          location?: string | null
+          max_distance?: number | null
+          photos?: string[] | null
+          skin_type?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      schedule_settings: {
+        Row: {
+          created_at: string
+          id: string
+          settings: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          settings?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          settings?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
