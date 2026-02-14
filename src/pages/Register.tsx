@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Upload, Eye } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Upload, Eye, X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,8 +16,42 @@ const TOTAL_STEPS = 6;
 const Register = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const validFiles = files.filter((f) => f.type.startsWith("image/") && f.size <= 5 * 1024 * 1024);
+    if (validFiles.length !== files.length) {
+      toast({ title: "Some files were skipped", description: "Only images under 5MB are allowed.", variant: "destructive" });
+    }
+    const newFiles = [...selectedFiles, ...validFiles].slice(0, 4);
+    setSelectedFiles(newFiles);
+    setPreviews(newFiles.map((f) => URL.createObjectURL(f)));
+  };
+
+  const removePhoto = (index: number) => {
+    URL.revokeObjectURL(previews[index]);
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadPhotos = async (userId: string): Promise<string[]> => {
+    const urls: string[] = [];
+    for (const file of selectedFiles) {
+      const ext = file.name.split(".").pop();
+      const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from("profile-photos").upload(path, file);
+      if (!error) {
+        const { data } = supabase.storage.from("profile-photos").getPublicUrl(path);
+        urls.push(data.publicUrl);
+      }
+    }
+    return urls;
+  };
   const [form, setForm] = useState({
     firstName: "",
     gender: "",
@@ -58,14 +92,16 @@ const Register = () => {
         return;
       }
 
-      // Update profile with extra details
+      // Upload photos and update profile with extra details
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        const photoUrls = await uploadPhotos(user.id);
         await supabase.from("profiles").update({
           gender: form.gender || null,
           legal_age: form.age ? parseInt(form.age) : null,
           height: form.height || null,
           skin_type: form.skinType || null,
+          photos: photoUrls.length > 0 ? photoUrls : null,
         }).eq("user_id", user.id);
       }
 
@@ -196,16 +232,51 @@ const Register = () => {
                 {step === 3 && (
                   <div className="space-y-5">
                     <div>
-                      <h2 className="text-2xl font-bold text-foreground">Upload Photo</h2>
-                      <p className="text-sm text-muted-foreground">Add a clear, friendly photo of yourself</p>
+                      <h2 className="text-2xl font-bold text-foreground">Upload Photos</h2>
+                      <p className="text-sm text-muted-foreground">Add up to 4 clear, friendly photos of yourself</p>
                     </div>
-                    <div className="flex flex-col items-center gap-4 rounded-2xl border-2 border-dashed border-border p-8 transition-colors hover:border-primary/40">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent">
-                        <Upload className="h-7 w-7 text-primary" />
+
+                    {previews.length > 0 && (
+                      <div className="grid grid-cols-2 gap-3">
+                        {previews.map((src, i) => (
+                          <div key={i} className="relative aspect-square overflow-hidden rounded-xl border border-border">
+                            <img src={src} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
+                            <button
+                              onClick={() => removePhoto(i)}
+                              className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                      <p className="text-sm text-muted-foreground">Drag & drop or click to upload</p>
-                      <Button variant="outline" size="sm">Choose File</Button>
-                    </div>
+                    )}
+
+                    {selectedFiles.length < 4 && (
+                      <div
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex cursor-pointer flex-col items-center gap-4 rounded-2xl border-2 border-dashed border-border p-8 transition-colors hover:border-primary/40"
+                      >
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent">
+                          <Upload className="h-7 w-7 text-primary" />
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {previews.length === 0 ? "Click to upload photos" : "Add more photos"}
+                        </p>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleFileSelect}
+                          className="hidden"
+                        />
+                      </div>
+                    )}
+
+                    <p className="text-xs text-muted-foreground text-center">
+                      {selectedFiles.length}/4 photos · Max 5MB each
+                    </p>
                   </div>
                 )}
 
@@ -217,9 +288,13 @@ const Register = () => {
                     </div>
                     <div className="rounded-2xl bg-accent/50 p-6">
                       <div className="mb-3 flex items-center gap-3">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                          <Eye className="h-6 w-6 text-primary" />
-                        </div>
+                        {previews.length > 0 ? (
+                          <img src={previews[0]} alt="Profile" className="h-14 w-14 rounded-full object-cover" />
+                        ) : (
+                          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+                            <ImageIcon className="h-6 w-6 text-primary" />
+                          </div>
+                        )}
                         <div>
                           <p className="font-semibold text-foreground">{form.firstName || "Your Name"}</p>
                           <p className="text-sm text-muted-foreground">{form.age ? `${form.age} years old` : "Age"} · {form.gender || "Gender"}</p>
