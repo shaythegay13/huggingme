@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { MapPin, Shield, Zap } from "lucide-react";
+import { MapPin, Shield, Zap, Heart, Handshake } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import EnergyBar from "./EnergyBar";
@@ -13,7 +13,7 @@ interface ProfileCardProps {
   energyLevel: number;
   isVerified: boolean;
   isAvailable: boolean;
-  onSendOffer: () => void;
+  onSendOffer: (type: "hug" | "handshake") => void;
 }
 
 const ProfileCard = ({
@@ -74,12 +74,21 @@ const ProfileCard = ({
         </div>
         <EnergyBar level={energyLevel} size="sm" />
 
-        <Button
-          onClick={(e) => { e.preventDefault(); onSendOffer(); }}
-          className="gradient-primary shine-effect mt-4 w-full border-0 text-primary-foreground"
-        >
-          Send Hug Offer
-        </Button>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Button
+            onClick={(e) => { e.preventDefault(); onSendOffer("hug"); }}
+            className="gradient-primary shine-effect border-0 text-primary-foreground"
+          >
+            <Heart className="mr-1.5 h-4 w-4" /> Hug
+          </Button>
+          <Button
+            onClick={(e) => { e.preventDefault(); onSendOffer("handshake"); }}
+            variant="outline"
+            className="border-primary/20 text-foreground hover:bg-accent"
+          >
+            <Handshake className="mr-1.5 h-4 w-4" /> Handshake
+          </Button>
+        </div>
       </div>
     </motion.div>
   );

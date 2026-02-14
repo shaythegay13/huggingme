@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Zap, CreditCard, Clock, MessageSquare, Send } from "lucide-react";
+import { X, Zap, CreditCard, Clock, MessageSquare, Send, Heart, Handshake } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,9 +15,10 @@ interface SendOfferModalProps {
   onClose: () => void;
   profileName: string;
   profileEnergy: number;
+  interactionType: "hug" | "handshake";
 }
 
-const SendOfferModal = ({ open, onClose, profileName, profileEnergy }: SendOfferModalProps) => {
+const SendOfferModal = ({ open, onClose, profileName, profileEnergy, interactionType }: SendOfferModalProps) => {
   const [yourEnergy, setYourEnergy] = useState(5);
   const [credits, setCredits] = useState(1);
   const [message, setMessage] = useState("");
@@ -27,6 +28,9 @@ const SendOfferModal = ({ open, onClose, profileName, profileEnergy }: SendOffer
   const { user } = useAuth();
 
   const energyDiff = Math.abs(yourEnergy - profileEnergy);
+  const isHug = interactionType === "hug";
+  const Icon = isHug ? Heart : Handshake;
+  const label = isHug ? "Hug" : "Handshake";
 
   const handleSend = () => {
     if (!user) {
@@ -34,8 +38,8 @@ const SendOfferModal = ({ open, onClose, profileName, profileEnergy }: SendOffer
       return;
     }
     toast({
-      title: "Offer Sent! 🤗",
-      description: `Your hug offer has been sent to ${profileName}. They'll be notified shortly.`,
+      title: `${label} Offer Sent! ${isHug ? "🤗" : "🤝"}`,
+      description: `Your ${label.toLowerCase()} offer has been sent to ${profileName}. They'll be notified shortly.`,
     });
     onClose();
     setMessage("");
@@ -63,14 +67,16 @@ const SendOfferModal = ({ open, onClose, profileName, profileEnergy }: SendOffer
             className="glass-card w-full max-w-md p-6 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-bold text-foreground">Send Hug Offer</h2>
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <Icon className="h-5 w-5 text-primary" /> Send {label} Offer
+              </h2>
               <button onClick={onClose} className="rounded-full p-1.5 hover:bg-accent transition-colors">
                 <X className="h-5 w-5 text-muted-foreground" />
               </button>
             </div>
 
             <p className="text-sm text-muted-foreground mb-6">
-              Send a hug offer to <strong className="text-foreground">{profileName}</strong>
+              Send a {label.toLowerCase()} offer to <strong className="text-foreground">{profileName}</strong>
             </p>
 
             <div className="space-y-5">
@@ -151,6 +157,7 @@ const SendOfferModal = ({ open, onClose, profileName, profileEnergy }: SendOffer
               {/* Summary */}
               <div className="rounded-xl bg-accent/50 p-4 text-sm space-y-1">
                 <p className="font-medium text-foreground">Offer Summary</p>
+                <p className="text-muted-foreground">Type: <strong className="text-foreground">{label}</strong></p>
                 <p className="text-muted-foreground">Energy differential: <strong className="text-foreground">{energyDiff}</strong></p>
                 <p className="text-muted-foreground">Credits: <strong className="text-foreground">{credits}</strong></p>
                 {timeSlot && <p className="text-muted-foreground">Time: <strong className="text-foreground capitalize">{timeSlot}</strong></p>}
@@ -161,7 +168,7 @@ const SendOfferModal = ({ open, onClose, profileName, profileEnergy }: SendOffer
                 onClick={handleSend}
                 className="w-full gradient-primary shine-effect border-0 text-primary-foreground"
               >
-                <Send className="mr-2 h-4 w-4" /> Send Offer
+                <Send className="mr-2 h-4 w-4" /> Send {label} Offer
               </Button>
             </div>
           </motion.div>
