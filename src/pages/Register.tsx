@@ -1,17 +1,23 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Upload, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 
 const TOTAL_STEPS = 6;
 
 const Register = () => {
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [form, setForm] = useState({
     firstName: "",
     gender: "",
@@ -27,7 +33,49 @@ const Register = () => {
   const updateForm = (key: string, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const next = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS));
+  const next = async () => {
+    // On step 5 (legal agreement accepted), actually register
+    if (step === 5) {
+      if (form.password !== form.confirmPassword) {
+        toast({ title: "Passwords don't match", variant: "destructive" });
+        return;
+      }
+      setLoading(true);
+      const { error } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: {
+            first_name: form.firstName,
+          },
+        },
+      });
+
+      if (error) {
+        toast({ title: "Registration failed", description: error.message, variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
+      // Update profile with extra details
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("profiles").update({
+          gender: form.gender || null,
+          legal_age: form.age ? parseInt(form.age) : null,
+          height: form.height || null,
+          skin_type: form.skinType || null,
+        }).eq("user_id", user.id);
+      }
+
+      setLoading(false);
+      setStep(6);
+      return;
+    }
+    setStep((s) => Math.min(s + 1, TOTAL_STEPS));
+  };
+
   const prev = () => setStep((s) => Math.max(s - 1, 1));
 
   const slideVariants = {
@@ -155,9 +203,7 @@ const Register = () => {
                       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent">
                         <Upload className="h-7 w-7 text-primary" />
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Drag & drop or click to upload
-                      </p>
+                      <p className="text-sm text-muted-foreground">Drag & drop or click to upload</p>
                       <Button variant="outline" size="sm">Choose File</Button>
                     </div>
                   </div>
@@ -217,8 +263,10 @@ const Register = () => {
                       <Check className="h-8 w-8 text-primary" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold text-foreground">Welcome, {form.firstName || "Friend"}!</h2>
-                      <p className="text-sm text-muted-foreground">Your account has been created. Start browsing huggers near you.</p>
+                      <h2 className="text-2xl font-bold text-foreground">Check Your Email!</h2>
+                      <p className="text-sm text-muted-foreground">
+                        We've sent a verification link to <strong>{form.email}</strong>. Please confirm your email to start using Hugging.me.
+                      </p>
                     </div>
                   </div>
                 )}
@@ -237,20 +285,30 @@ const Register = () => {
               {step < 6 ? (
                 <Button
                   onClick={next}
+                  disabled={(step === 5 && !form.agreedToTerms) || loading}
                   className="gradient-primary shine-effect ml-auto border-0 text-primary-foreground"
-                  disabled={step === 5 && !form.agreedToTerms}
                 >
-                  {step === 5 ? "Complete" : "Continue"} <ArrowRight className="ml-2 h-4 w-4" />
+                  {loading ? "Creating..." : step === 5 ? "Complete" : "Continue"} <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               ) : (
-                <Button
-                  className="gradient-primary shine-effect mx-auto border-0 text-primary-foreground"
-                  onClick={() => window.location.href = "/browse"}
-                >
-                  Start Browsing
-                </Button>
+                <div className="flex w-full gap-3">
+                  <Link to="/login" className="flex-1">
+                    <Button className="w-full gradient-primary shine-effect border-0 text-primary-foreground">
+                      Go to Login
+                    </Button>
+                  </Link>
+                </div>
               )}
             </div>
+
+            {step === 1 && (
+              <p className="mt-6 text-center text-sm text-muted-foreground">
+                Already have an account?{" "}
+                <Link to="/login" className="font-medium text-primary hover:underline">
+                  Sign in
+                </Link>
+              </p>
+            )}
           </div>
         </motion.div>
       </div>
