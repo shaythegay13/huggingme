@@ -10,6 +10,7 @@ import { Slider } from "@/components/ui/slider";
 import Header from "@/components/Header";
 import ProfileCard from "@/components/ProfileCard";
 import SendOfferModal from "@/components/SendOfferModal";
+import { mockProfiles } from "@/data/mockProfiles";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -36,8 +37,25 @@ const Browse = () => {
     },
   });
 
-  const filtered = profiles
-    .filter((p) => p.user_id !== user?.id)
+  // Normalize mock profiles to match DB shape, then combine
+  const normalizedMock = mockProfiles.map((p) => ({
+    id: p.id,
+    user_id: `mock-${p.id}`,
+    first_name: p.name,
+    legal_age: p.age,
+    location: p.location,
+    photos: [p.photo],
+    energy_state: p.energyLevel,
+    is_verified: p.isVerified,
+    available_today: p.isAvailable,
+  }));
+
+  const allProfiles = [
+    ...normalizedMock,
+    ...profiles.filter((p) => p.user_id !== user?.id),
+  ];
+
+  const filtered = allProfiles
     .filter((p) => {
       const matchesSearch =
         p.first_name.toLowerCase().includes(search.toLowerCase()) ||
