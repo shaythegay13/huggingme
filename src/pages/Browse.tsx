@@ -19,7 +19,7 @@ const Browse = () => {
   const [minEnergy, setMinEnergy] = useState(1);
   const [sortBy, setSortBy] = useState<"name" | "energy">("name");
 
-  const [offerTarget, setOfferTarget] = useState<{ name: string; energy: number } | null>(null);
+  const [offerTarget, setOfferTarget] = useState<{ name: string; energy: number; type: "hug" | "handshake" } | null>(null);
 
   const filtered = mockProfiles
     .filter((p) => {
@@ -197,7 +197,7 @@ const Browse = () => {
                 energyLevel={profile.energyLevel}
                 isVerified={profile.isVerified}
                 isAvailable={profile.isAvailable}
-                onSendOffer={() => setOfferTarget({ name: profile.name, energy: profile.energyLevel })}
+                onSendOffer={(type) => setOfferTarget({ name: profile.name, energy: profile.energyLevel, type })}
               />
             </motion.div>
           ))}
@@ -215,6 +215,7 @@ const Browse = () => {
         onClose={() => setOfferTarget(null)}
         profileName={offerTarget?.name || ""}
         profileEnergy={offerTarget?.energy || 5}
+        interactionType={offerTarget?.type || "hug"}
       />
     </div>
   );
