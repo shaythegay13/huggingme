@@ -75,7 +75,7 @@ async function searchProfiles(params: Record<string, unknown>, userId: string) {
 function parseSSEToMessage(text: string) {
   const lines = text.split("\n");
   let content = "";
-  let toolCalls: any[] = [];
+  const toolCalls: any[] = [];
 
   for (const line of lines) {
     if (!line.startsWith("data: ")) continue;

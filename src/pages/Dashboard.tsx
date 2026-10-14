@@ -73,7 +73,7 @@ const Dashboard = () => {
       sentRes.data.forEach((o) => partnerIds.add(o.receiver_id));
       receivedRes.data.forEach((o) => partnerIds.add(o.sender_id));
 
-      let profileMap: Record<string, string> = {};
+      const profileMap: Record<string, string> = {};
       if (partnerIds.size > 0) {
         const { data: profiles } = await supabase
           .from("profiles")

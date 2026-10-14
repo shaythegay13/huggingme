@@ -1,19 +1,92 @@
 import { motion } from "framer-motion";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Shield, Zap, Heart, Handshake, Globe, Ruler, User } from "lucide-react";
+import { ArrowLeft, MapPin, Shield, Zap, Heart, Handshake, Globe, Ruler, User, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
 import EnergyBar from "@/components/EnergyBar";
-import { mockProfiles } from "@/data/mockProfiles";
+import { mockProfiles, type MockProfile } from "@/data/mockProfiles";
 import { useState } from "react";
 import SendOfferModal from "@/components/SendOfferModal";
+import { supabase } from "@/integrations/supabase/client";
+
+type ProfileView = {
+  name: string;
+  age?: number;
+  gender: string;
+  height: string;
+  location: string;
+  bio: string;
+  photos: string[];
+  energyLevel: number;
+  isVerified: boolean;
+  isAvailable: boolean;
+  languages: string[];
+};
+
+const fromMock = (profile: MockProfile): ProfileView => ({
+  name: profile.name,
+  age: profile.age,
+  gender: profile.gender,
+  height: profile.height,
+  location: profile.location,
+  bio: profile.bio,
+  photos: profile.photos,
+  energyLevel: profile.energyLevel,
+  isVerified: profile.isVerified,
+  isAvailable: profile.isAvailable,
+  languages: profile.languages,
+});
 
 const Profile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [offerOpen, setOfferOpen] = useState(false);
   const [offerType, setOfferType] = useState<"hug" | "handshake">("hug");
-  const profile = mockProfiles.find((p) => p.id === id);
+  const mockProfile = mockProfiles.find((p) => p.id === id);
+
+  const { data: dbProfile, isLoading, isError } = useQuery({
+    queryKey: ["profile", id],
+    enabled: !!id && !mockProfile,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("first_name, legal_age, gender, height, location, bio, photos, energy_state, is_verified, available_today, languages")
+        .eq("id", id!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const profile: ProfileView | null = mockProfile
+    ? fromMock(mockProfile)
+    : dbProfile
+      ? {
+          name: dbProfile.first_name || "Hugger",
+          age: dbProfile.legal_age ?? undefined,
+          gender: dbProfile.gender || "Not listed",
+          height: dbProfile.height || "Not listed",
+          location: dbProfile.location || "Unknown",
+          bio: dbProfile.bio || "",
+          photos: dbProfile.photos?.length ? dbProfile.photos : ["/placeholder.svg"],
+          energyLevel: dbProfile.energy_state,
+          isVerified: dbProfile.is_verified,
+          isAvailable: dbProfile.available_today,
+          languages: dbProfile.languages?.length ? dbProfile.languages : ["Not listed"],
+        }
+      : null;
+
+  if (!mockProfile && isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto flex min-h-screen items-center justify-center px-4 pt-24">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
 
   if (!profile) {
     return (
@@ -21,7 +94,9 @@ const Profile = () => {
         <Header />
         <div className="container mx-auto flex min-h-screen items-center justify-center px-4 pt-24">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-foreground">Profile not found</h2>
+            <h2 className="text-2xl font-bold text-foreground">
+              {isError ? "Could not load this profile" : "Profile not found"}
+            </h2>
             <Link to="/browse" className="mt-4 inline-block text-primary hover:underline">
               Back to Browse
             </Link>
@@ -79,7 +154,7 @@ const Profile = () => {
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <h1 className="text-2xl font-bold text-foreground">
-                      {profile.name}, {profile.age}
+                      {profile.age ? `${profile.name}, ${profile.age}` : profile.name}
                     </h1>
                     <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                       <MapPin className="h-3.5 w-3.5" />
