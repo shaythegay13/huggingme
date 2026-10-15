@@ -7,7 +7,7 @@ import EnergyBar from "./EnergyBar";
 interface ProfileCardProps {
   id: string;
   name: string;
-  age: number;
+  age?: number;
   location: string;
   photo: string;
   energyLevel: number;
@@ -57,7 +57,7 @@ const ProfileCard = ({
 
           <div className="absolute bottom-3 left-3 right-3">
             <h3 className="text-lg font-bold text-primary-foreground">
-              {name}, {age}
+              {age ? `${name}, ${age}` : name}
             </h3>
             <div className="flex items-center gap-1 text-primary-foreground/80">
               <MapPin className="h-3.5 w-3.5" />
